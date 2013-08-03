@@ -24,6 +24,8 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var restler = require('restler');
+var util = require('util');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
 
@@ -44,8 +46,13 @@ var loadChecks = function(checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
-var checkHtmlFile = function(htmlfile, checksfile) {
-    $ = cheerioHtmlFile(htmlfile);
+var checkHtml = function(source, checksfile, type) {
+    if(type == 'url'){
+	console.log(source.toString())
+	$ = cheerio.load(source);
+    } else if (type == 'file') {
+	$ = cheerioHtmlFile(source);
+    }
     var checks = loadChecks(checksfile).sort();
     var out = {};
     for(var ii in checks) {
@@ -61,14 +68,32 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
+
+var response2out = function(result, response) {
+    if (result instanceof Error) {
+        console.error('Error: ' + util.format(result.message));
+    } else {	
+	var checkJson = checkHtml(result.toString(), program.checks, type='url');
+        var outJson = JSON.stringify(checkJson, null, 4);
+	console.log(outJson);
+    }
+};
+
 if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u --url <url>', 'URL to index.html')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    if (program.url) {
+	console.log(program.url);
+	restler.get(program.url).on('complete', response2out);
+    }
+    else {
+	var checkJson = checkHtml(program.file, program.checks, type='file');
+	var outJson = JSON.stringify(checkJson, null, 4);    
+	console.log(outJson);
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
