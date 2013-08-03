@@ -48,7 +48,6 @@ var loadChecks = function(checksfile) {
 
 var checkHtml = function(source, checksfile, type) {
     if(type == 'url'){
-	console.log(source.toString())
 	$ = cheerio.load(source);
     } else if (type == 'file') {
 	$ = cheerioHtmlFile(source);
